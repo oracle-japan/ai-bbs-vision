@@ -7,7 +7,7 @@ NAMESPACE = "orasejapan"
 
 ############ 01. Getting Started ############
 BUCKET_NAME = "ai-bbs-vision"
-PRETRAINED_MODEL_TEST_IMAGE_PATH = "./images"
+PRETRAINED_MODEL_TEST_IMAGE_PATH = "../images"
 
 ############ 02. Custom Model ############
 LEMON_TRAINING_DATA_BUCKET_NAME = "lemon-training-data-bucket"
