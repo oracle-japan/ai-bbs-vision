@@ -3,3 +3,4 @@ results/**/*.json
 *.zip
 lemon_dataset/
 __pycache__/
+.vscode
