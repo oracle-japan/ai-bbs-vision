@@ -12,3 +12,18 @@ oci:
   services:
     vision:
       model-ocid: ocid1.aivisionmodel.oc1.ap-tokyo-1.amaaaaaassl65iqagayt2uvd7rrsamq3aokyp3yywxghdekw5ogf7xhautkq
+
+datasources:
+  default:
+    db-type: mysql
+    dialect: MYSQL
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: "${mysql.lemon_quality.url:}"
+    username: ${mysql.lemon_quality.user:}
+    password: ${mysql.lemon_quality.password:}
+jpa:
+  default:
+    properties:
+      hibernate:
+        hbm2ddl:
+          auto: update
