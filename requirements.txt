@@ -21,7 +21,7 @@ matplotlib==3.8.1
 matplotlib-inline==0.1.6
 nest-asyncio==1.5.8
 numpy==1.26.2
-oci==2.116.0
+oci==2.118.0
 packaging==23.2
 parso==0.8.3
 pexpect==4.8.0
