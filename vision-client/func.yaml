@@ -1,0 +1,15 @@
+schema_version: 20180708
+name: vision-client
+version: 0.0.36
+runtime: python
+build_image: fnproject/python:3.11-dev
+run_image: fnproject/python:3.11
+entrypoint: /python/bin/fdk /function/func.py handler
+memory: 512
+config:
+  IS_LOCAL:
+  COMPARTMENT_ID:
+  MODEL_ID:
+  DSN:
+  USERNAME:
+  PASSWORD:
