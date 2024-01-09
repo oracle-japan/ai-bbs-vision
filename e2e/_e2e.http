@@ -1,0 +1,22 @@
+@endpoint = https://glzylhyxcywjmxvjccbshvidwa.apigateway.ap-tokyo-1.oci.customer-oci.com/vision/analyze
+
+### @name bad_quality
+POST {{endpoint}} HTTP/1.1
+Content-Type: multipart/form-data; boundary=boundary
+Content-Disposition: form-data; name="file"; filename="bad_quality_26.jpg"
+
+< /home/shukawam/work/ai-bbs-vision/lemon_dataset/test/bad_quality_26.jpg
+
+### @name good_quality
+POST {{endpoint}} HTTP/1.1
+Content-Type: multipart/form-data; boundary=boundary
+Content-Disposition: form-data; name="file"; filename="good_quality_44.jpg"
+
+< /home/shukawam/work/ai-bbs-vision/lemon_dataset/test/good_quality_44.jpg
+
+### @name empty_background
+POST {{endpoint}} HTTP/1.1
+Content-Type: multipart/form-data; boundary=boundary
+Content-Disposition: form-data; name="file"; filename="empty_background_17.jpg"
+
+< /home/shukawam/work/ai-bbs-vision/lemon_dataset/test/empty_background_17.jpg
