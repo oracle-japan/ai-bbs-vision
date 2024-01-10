@@ -2,31 +2,58 @@ import io
 import json
 import logging
 import base64
+import random
+import string
 import os
 import oracledb
+from zipfile import ZipFile
 from fdk import response, context
 from oci.auth.signers import InstancePrincipalsSecurityTokenSigner, get_resource_principals_signer
 from oci.ai_vision import AIServiceVisionClient
 from oci.ai_vision.models import AnalyzeImageDetails, ImageClassificationFeature, InlineImageDetails
+from oci.database import DatabaseClient
+from oci.database.models import GenerateAutonomousDatabaseWalletDetails
 
-# from Functions Config
+# from Configs
 compartment_id = os.getenv('COMPARTMENT_ID')
 model_id = os.getenv('MODEL_ID')
+atp_id = os.getenv('ATP_ID')
 username = os.getenv('USERNAME')
 dsn = os.getenv('DSN')
 password = os.getenv('PASSWORD')
+wallet_password = ''.join(random.choices(string.ascii_uppercase + string.digits, k=15)) # random string
 
-conn = oracledb.connect(
-    user=username,
-    password=password,
-    dsn=dsn
-)
+wallet_zip_location = "/tmp/dbwallet.zip"
+wallet_dir = "/tmp/Wallet"
 
 is_local = os.getenv('IS_LOCAL')
+is_save = os.getenv('IS_SAVE')
 if "true".__eq__(is_local):
     signer = InstancePrincipalsSecurityTokenSigner()
 else:
     signer = get_resource_principals_signer()
+
+# executed once when the function container is initialized
+def get_wallet():
+    logging.getLogger().info("Inside get_wallet")
+    atp_client = DatabaseClient(config={}, signer=signer)
+    atp_wallet_details = GenerateAutonomousDatabaseWalletDetails(password=wallet_password)
+    obj = atp_client.generate_autonomous_database_wallet(atp_id, atp_wallet_details)
+    with open(wallet_zip_location, 'w+b') as f:
+        for chunk in obj.data.raw.stream(1024 * 1024, decode_content=False):
+            f.write(chunk)
+    with ZipFile(wallet_zip_location, 'r') as zipObj:
+        zipObj.extractall(wallet_dir)
+
+get_wallet()
+
+conn = oracledb.connect(
+    user=username,
+    password=password,
+    dsn=dsn,
+    wallet_location=wallet_dir,
+    wallet_password=wallet_password
+)
 
 client = AIServiceVisionClient(config={}, signer=signer)
 
@@ -34,17 +61,18 @@ def handler(ctx: context.InvokeContext, data: io.BytesIO = None):
     logging.getLogger().info("Inside vision_client function")
     try:
         filename = parse_filename(headers=ctx.Headers())
-        resp = analyze_image(data)
-        parsed_response = parse_analyze_result(resp)
-        if "true".__eq__(is_local):
-            logging.getLogger().debug("do nothing.")
-        else:
+        analyze_image_response = analyze_image(data)
+        parsed_response = parse_analyze_result(analyze_image_response)
+        if "true".__eq__(is_save):
             save_analyze_result(
                 filename,
                 parsed_response['bad_quality'],
                 parsed_response['good_quality'],
-                parsed_response['empty_background']
+                parsed_response['empty_background'],
+                max(parsed_response,key=parsed_response.get)
             )
+        else:
+            logging.getLogger().debug("do nothing.")
         return response.Response(
             ctx=ctx,
             response_data=json.dumps(
@@ -57,6 +85,7 @@ def handler(ctx: context.InvokeContext, data: io.BytesIO = None):
         )
     except (Exception, ValueError) as ex:
         logging.getLogger().info(f'error parsing json payload: {str(ex)}')
+
 
 def parse_filename(headers: dict):
     content_disposition = headers['content-disposition']
@@ -98,9 +127,9 @@ def parse_analyze_result(analyze_result):
     return result
 
      
-def save_analyze_result(filename, bad_quality, good_quality, empty_background):
+def save_analyze_result(filename, bad_quality, good_quality, empty_background, result):
     logging.getLogger().info("Inside save_analyze_result")
-    row = (filename, bad_quality, good_quality, empty_background)
+    row = (filename, bad_quality, good_quality, empty_background, result)
     with conn.cursor() as cursor:
         try:
             statement = """
@@ -108,12 +137,14 @@ def save_analyze_result(filename, bad_quality, good_quality, empty_background):
                     IMAGE_NAME,
                     BAD_QUALITY,
                     GOOD_QUALITY,
-                    EMPTY_BACKGROUND
+                    EMPTY_BACKGROUND,
+                    RESULT
                 ) VALUES (
                     :1,
                     :2,
                     :3,
-                    :4
+                    :4,
+                    :5
                 )
             """
             cursor.execute(statement, row)
@@ -153,20 +184,21 @@ def delete_all_rows():
                 logging.getLogger().error('^'.rjust(error.offset+1, ' '))
 
 def main():
-    with open("/home/shukawam/work/ai-bbs-vision/lemon_dataset/test/good_quality_44.jpg", "rb") as image:
-        # name = "debug"
-        # ctx = context.InvokeContext(
-        #     app_id=name,
-        #     app_name=name,
-        #     fn_id=name,
-        #     fn_name=name,
-        #     call_id=name,
-        #     headers={
-        #         'Content-Type': 'multipart/form-data; boundary=ce560532019a77d83195f9e9873e16a1',
-        #         'Content-Disposition': 'form-data; name="file"; filename="good_quality_44.jpg"'
-        #     }
-        # )
-        # handler(ctx, image)
+    filename="empty_background_66.jpg"
+    with open(f"/home/shukawam/work/ai-bbs-vision/lemon_dataset/test/{filename}", "rb") as image:
+        name = "debug"
+        ctx = context.InvokeContext(
+            app_id=name,
+            app_name=name,
+            fn_id=name,
+            fn_name=name,
+            call_id=name,
+            headers={
+                'content-type': 'multipart/form-data; boundary=ce560532019a77d83195f9e9873e16a1',
+                'content-disposition': f'form-data; name="file"; filename="{filename}"'
+            }
+        )
+        handler(ctx, image)
         check_result()
         # delete_all_rows()
 
